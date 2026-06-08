@@ -31,11 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } else {
       // Mock user for easy dashboard testing without login
-      const mockUser = {
+      const mockUser: User = {
         id: "mock-test-id",
         email: "test@ediai.com",
         name: "Test User",
         role: "admin",
+        is_active: true,
         created_at: new Date().toISOString()
       };
       setUser(mockUser);
