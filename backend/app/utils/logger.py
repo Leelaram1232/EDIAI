@@ -6,6 +6,13 @@ import sys
 from pathlib import Path
 from app.config import settings
 
+# Reconfigure stdout on startup to handle unicode/emojis gracefully on Windows
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(errors="backslashreplace")
+    except Exception:
+        pass
+
 
 def get_logger(name: str) -> logging.Logger:
     """Create a configured logger instance."""
