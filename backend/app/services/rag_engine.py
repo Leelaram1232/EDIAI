@@ -148,9 +148,12 @@ class OllamaRAGEngine:
                 from sentence_transformers import SentenceTransformer
                 self._embedder = SentenceTransformer("all-MiniLM-L6-v2")
                 logger.info("✅ SentenceTransformer 'all-MiniLM-L6-v2' loaded")
+            except ImportError:
+                logger.warning("⚠️  'sentence-transformers' not installed. RAG search will be bypassed.")
+                self._embedder = "missing"
             except Exception as e:
                 logger.error(f"❌ Failed to load embedding model: {e}")
-                raise
+                self._embedder = "missing" 
 
     def _init_chromadb(self):
         """Connect to ChromaDB PersistentClient (lazy)."""
@@ -167,16 +170,14 @@ class OllamaRAGEngine:
                 )
                 count = self._collection.count()
                 logger.info(f"✅ ChromaDB connected — collection '{collection_name}' has {count} chunks")
+            except ImportError:
+                logger.warning("⚠️  'chromadb' not installed. RAG storage will be bypassed.")
+                self._chroma_client = "missing"
+                self._collection = "missing"
             except Exception as e:
                 logger.warning(f"⚠️ ChromaDB connection failed: {e}")
-                # Fallback: in-memory empty collection
-                import chromadb
-                self._chroma_client = chromadb.Client()
-                self._collection = self._chroma_client.get_or_create_collection(
-                    name="ibm_itx_docs",
-                    metadata={"hnsw:space": "cosine"},
-                )
-                logger.info("Using in-memory ChromaDB (no pre-trained data)")
+                self._chroma_client = "missing"
+                self._collection = "missing" 
 
     def _init_ollama(self):
         """Initialize Ollama client via OpenAI SDK."""
@@ -232,6 +233,10 @@ class OllamaRAGEngine:
         """
         self._init_embedder()
         self._init_chromadb()
+
+        if self._embedder == "missing" or self._collection == "missing":
+            logger.info("📚 Bypassing RAG retrieval (required dependencies are not installed in this environment)")
+            return []
 
         try:
             query_embedding = self._embedder.encode([query]).tolist()

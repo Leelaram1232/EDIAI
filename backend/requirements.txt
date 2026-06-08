@@ -24,11 +24,7 @@ openai
 anthropic
 tiktoken
 
-# ---- Vector Database ----
-chromadb
 
-# ---- Embeddings ----
-sentence-transformers
 
 # ---- Document Parsing ----
 pypdf
