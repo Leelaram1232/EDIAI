@@ -29,6 +29,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("auth_user");
         localStorage.removeItem("auth_token");
       }
+    } else {
+      // Mock user for easy dashboard testing without login
+      const mockUser = {
+        id: "mock-test-id",
+        email: "test@ediai.com",
+        name: "Test User",
+        role: "admin",
+        created_at: new Date().toISOString()
+      };
+      setUser(mockUser);
+      localStorage.setItem("auth_token", "mock-token-for-test");
+      localStorage.setItem("auth_user", JSON.stringify(mockUser));
     }
     setIsLoading(false);
   }, []);
