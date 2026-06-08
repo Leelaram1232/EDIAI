@@ -1,0 +1,58 @@
+# ---- Core Framework ----
+fastapi>=0.115.0
+uvicorn[standard]
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+python-multipart>=0.0.12
+httpx>=0.27.0
+python-dotenv>=1.0.1
+
+# ---- Database ----
+sqlalchemy[asyncio]
+asyncpg
+aiosqlite
+alembic
+greenlet
+
+# ---- Authentication ----
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+
+# ---- AI / LLM ----
+openai
+anthropic
+tiktoken
+
+# ---- Vector Database ----
+chromadb
+
+# ---- Embeddings ----
+sentence-transformers
+
+# ---- Document Parsing ----
+pypdf
+python-docx
+beautifulsoup4
+lxml
+chardet
+
+# ---- Export / Document Generation ----
+openpyxl
+reportlab
+Pillow
+
+# ---- Utilities ----
+datasketch
+numpy
+aiofiles
+
+# ---- Logging & Monitoring ----
+structlog
+rich
+
+# ---- Testing ----
+pytest
+pytest-asyncio
+httpx
+
