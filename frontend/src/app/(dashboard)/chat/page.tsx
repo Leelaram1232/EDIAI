@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import type { ChatMessage, GenerateResponse } from "@/types/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+import { API_BASE } from "@/lib/api";
 
 const MODULES = [
   { value: "", label: "General AI" },

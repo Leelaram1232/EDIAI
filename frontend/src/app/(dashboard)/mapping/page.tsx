@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import api from "@/lib/api";
+import api, { API_BASE } from "@/lib/api";
 
 interface MapEntry {
   source: string;
@@ -81,7 +81,7 @@ export default function MappingPage() {
 
   const downloadFile = (artifactId: string, filename: string) => {
     const token = localStorage.getItem("auth_token");
-    const url = `http://localhost:8000/api/itx/artifacts/${artifactId}/download`;
+    const url = `${API_BASE}/itx/artifacts/${artifactId}/download`;
     const a = document.createElement("a");
     a.href = url;
     if (token) {
@@ -104,7 +104,7 @@ export default function MappingPage() {
     if (!mapResult) return;
     const token = localStorage.getItem("auth_token");
     try {
-      const response = await fetch("http://localhost:8000/api/export/mapping-doc", {
+      const response = await fetch(`${API_BASE}/export/mapping-doc`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

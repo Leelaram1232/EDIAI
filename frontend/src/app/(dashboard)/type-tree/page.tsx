@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import api from "@/lib/api";
+import api, { API_BASE } from "@/lib/api";
 
 interface TreeNode {
   name: string;
@@ -56,7 +56,7 @@ ${requirements}
 
   const downloadFile = (artifactId: string, filename: string) => {
     const token = localStorage.getItem("auth_token");
-    const url = `http://localhost:8000/api/itx/artifacts/${artifactId}/download`;
+    const url = `${API_BASE}/itx/artifacts/${artifactId}/download`;
     const a = document.createElement("a");
     a.href = url;
     if (token) {

@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import type { GenerateResponse } from "@/types/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+import { API_BASE } from "@/lib/api";
 
 const ARTIFACT_TYPES = [
   { value: "auto", label: "Auto Detect", desc: "Automatically detect MTT or MMS from your prompt" },
