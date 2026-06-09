@@ -28,12 +28,12 @@ When analyzing sample data to build type trees, provide:
 
 1. **Analysis Summary**: Delimiters, Record Separators, Columns, or Offset Positions detected.
 2. **Visual Structure**: ASCII tree representation.
-3. **JSON schema**: Enclose a valid structured JSON representation in a ```json ... ``` block. Format:
+3. **JSON schema**: Enclose a valid structured JSON representation in a ```json ... ``` block. Ensure this JSON is strictly valid, with double quotes, NO trailing commas, and NO javascript-style comments. It must strictly follow the format:
 {
   "name": "TreeRoot",
   "type": "group",
   "children": [
-    { "name": "Header", "type": "group", "children": [...] },
+    { "name": "Header", "type": "group", "children": [] },
     { "name": "Row", "type": "item", "dataType": "string", "length": 50, "delimiter": ",", "required": true }
   ]
 }
@@ -41,7 +41,7 @@ When analyzing sample data to build type trees, provide:
 ```xml
 <TTMAKER Version="6.0">
   <NEWTREE Filename="C:\\temp\\generated_tree.mtt">
-    <GROUP Name="RootRecord">
+    <GROUP Name="Root">
       <COMPONENT Name="Header" Min="1" Max="1"/>
       <COMPONENT Name="Body" Min="0" Max="S"/>
     </GROUP>

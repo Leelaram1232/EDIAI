@@ -124,4 +124,10 @@ def get_embedding_provider() -> EmbeddingProvider:
     """Factory: return configured embedding provider."""
     if settings.AI_PROVIDER == "ollama":
         return LocalEmbeddingProvider()
+        
+    # If using Groq (api key starts with gsk_), Groq doesn't support embeddings
+    # so we must fallback to local sentence-transformers
+    if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.startswith("gsk_"):
+        return LocalEmbeddingProvider()
+        
     return OpenAIEmbeddingProvider()

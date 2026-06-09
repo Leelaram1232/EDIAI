@@ -11,8 +11,155 @@ from app.plugins.itx.prompts.function_prompts import (
     TYPE_TREE_SYSTEM, MAPPING_SYSTEM, DEBUG_SYSTEM,
 )
 from app.utils.logger import get_logger
+import re
+import json
+import uuid
+from typing import Optional, Dict, Any, List
 
 logger = get_logger(__name__)
+
+
+def clean_json_string(s: str) -> str:
+    # Remove single-line comments //...
+    s = re.sub(r'//.*', '', s)
+    # Remove multi-line comments /*...*/
+    s = re.sub(r'/\*.*?\*/', '', s, flags=re.DOTALL)
+    # Remove trailing commas before closing braces/brackets
+    s = re.sub(r',\s*([\]}])', r'\1', s)
+    return s.strip()
+
+
+def extract_json(content: str) -> Optional[dict]:
+    # 1. Try to extract from ```json ... ```
+    pattern = r"```json\s*([\s\S]*?)```"
+    match = re.search(pattern, content, re.IGNORECASE)
+    if match:
+        try:
+            return json.loads(clean_json_string(match.group(1)))
+        except Exception:
+            pass
+            
+    # 2. Try to extract from any ``` ... ``` block that might contain JSON
+    pattern_generic = r"```\s*([\s\S]*?)```"
+    for match in re.finditer(pattern_generic, content):
+        try:
+            return json.loads(clean_json_string(match.group(1)))
+        except Exception:
+            pass
+            
+    # 3. Try to find the first '{' and last '}' and parse it
+    try:
+        start_idx = content.find('{')
+        end_idx = content.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_candidate = content[start_idx:end_idx+1]
+            return json.loads(clean_json_string(json_candidate))
+    except Exception:
+        pass
+        
+    return None
+
+
+def extract_xml(content: str) -> str:
+    # 1. Try to extract from ```xml ... ```
+    pattern = r"```xml\s*([\s\S]*?)```"
+    match = re.search(pattern, content, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+        
+    # 2. Try to find the first '<TTMAKER' and last '</TTMAKER>'
+    start_idx = content.find('<TTMAKER')
+    end_idx = content.rfind('</TTMAKER>')
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        return content[start_idx:end_idx + len('</TTMAKER>')].strip()
+        
+    # 3. Try generic ``` ... ```
+    pattern_generic = r"```\s*([\s\S]*?)```"
+    for match in re.finditer(pattern_generic, content):
+        cand = match.group(1).strip()
+        if "<TTMAKER" in cand:
+            return cand
+            
+    return ""
+
+
+def extract_mms(content: str) -> str:
+    # 1. Try to extract from ```mms ... ```
+    pattern = r"```mms\s*([\s\S]*?)```"
+    match = re.search(pattern, content, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+        
+    # 2. Try to find the first 'MAP:' and extract to the end of the block or file
+    start_idx = content.find('MAP:')
+    if start_idx != -1:
+        end_idx = content.find('```', start_idx)
+        if end_idx != -1:
+            return content[start_idx:end_idx].strip()
+        return content[start_idx:].strip()
+        
+    # 3. Try generic ``` ... ```
+    pattern_generic = r"```\s*([\s\S]*?)```"
+    for match in re.finditer(pattern_generic, content):
+        cand = match.group(1).strip()
+        if "MAP:" in cand:
+            return cand
+            
+    return ""
+
+
+def normalize_json_schema(schema: dict) -> Optional[dict]:
+    if not isinstance(schema, dict):
+        return None
+        
+    # If the schema is wrapped in a single top-level key like "type_tree" or "schema" or "root"
+    if len(schema) == 1:
+        key = list(schema.keys())[0]
+        val = schema[key]
+        if isinstance(val, dict) and "name" in val and "type" in val:
+            schema = val
+            
+    # Normalize children/elements
+    def normalize_node(node: dict) -> dict:
+        if not isinstance(node, dict):
+            return {}
+            
+        # Ensure type is either "group" or "item"
+        node_type = node.get("type", "item").lower()
+        if node_type not in ["group", "item"]:
+            if "children" in node or "elements" in node:
+                node_type = "group"
+            else:
+                node_type = "item"
+                
+        normalized = {
+            "name": node.get("name") or node.get("fieldName") or node.get("id") or "Unnamed",
+            "type": node_type
+        }
+        
+        if "dataType" in node:
+            normalized["dataType"] = node["dataType"]
+        elif "data_type" in node:
+            normalized["dataType"] = node["data_type"]
+            
+        if "length" in node:
+            normalized["length"] = node["length"]
+            
+        if "delimiter" in node:
+            normalized["delimiter"] = node["delimiter"]
+            
+        if "required" in node:
+            normalized["required"] = bool(node["required"])
+            
+        # Handle children/elements
+        children_list = node.get("children") or node.get("elements")
+        if children_list and isinstance(children_list, list):
+            normalized["children"] = [normalize_node(c) for c in children_list if isinstance(c, dict)]
+            
+        return normalized
+
+    return normalize_node(schema)
+
 
 
 class ITXPlugin(BasePlugin):
@@ -105,9 +252,6 @@ class ITXPlugin(BasePlugin):
 
     async def _build_type_tree(self, payload: dict) -> PluginResponse:
         """Module 4: Build type tree from sample data."""
-        import re
-        import json
-        import uuid
         from app.models.artifact import Artifact
 
         sample_data = payload.get("sample_data", "")
@@ -141,35 +285,26 @@ Always include a JSON representation of the tree inside a ```json ``` block, and
             max_tokens=3000,
         )
 
-        def extract_code(content: str, lang: str) -> str:
-            pattern = rf"```{lang}\s*([\s\S]*?)```"
-            match = re.search(pattern, content, re.IGNORECASE)
-            return match.group(1).strip() if match else ""
-
-        json_str = extract_code(response, "json")
-        xml_str = extract_code(response, "xml")
-
-        json_schema = {}
-        if json_str:
-            try:
-                json_schema = json.loads(json_str)
-            except Exception as e:
-                logger.warning(f"Failed to parse generated type tree JSON: {e}")
+        json_schema = extract_json(response)
+        if json_schema:
+            json_schema = normalize_json_schema(json_schema)
+        xml_str = extract_xml(response)
 
         artifact_id = None
         if xml_str and db and user_id:
             try:
-                artifact = Artifact(
-                    id=str(uuid.uuid4()),
-                    name=f"type_tree_{uuid.uuid4().hex[:8]}.mts",
-                    artifact_type="type_tree",
-                    content=xml_str,
-                    format="mts",
-                    user_id=user_id
-                )
-                db.add(artifact)
-                await db.flush()
-                artifact_id = artifact.id
+                async with db.begin_nested():
+                    artifact = Artifact(
+                        id=str(uuid.uuid4()),
+                        name=f"type_tree_{uuid.uuid4().hex[:8]}.mts",
+                        artifact_type="type_tree",
+                        content=xml_str,
+                        format="mts",
+                        user_id=user_id
+                    )
+                    db.add(artifact)
+                    await db.flush()
+                    artifact_id = artifact.id
             except Exception as e:
                 logger.error(f"Failed to save type tree artifact: {e}")
 
@@ -184,8 +319,6 @@ Always include a JSON representation of the tree inside a ```json ``` block, and
 
     async def _suggest_mapping(self, payload: dict) -> PluginResponse:
         """Module 5: Suggest mapping logic."""
-        import re
-        import uuid
         from app.models.artifact import Artifact
 
         source = payload.get("source_data", "")
@@ -225,27 +358,23 @@ Always enclose the Map Source definition script (.mms) inside a ```mms ``` block
             max_tokens=3000,
         )
 
-        def extract_code(content: str, lang: str) -> str:
-            pattern = rf"```{lang}\s*([\s\S]*?)```"
-            match = re.search(pattern, content, re.IGNORECASE)
-            return match.group(1).strip() if match else ""
-
-        mms_script = extract_code(response, "mms")
+        mms_script = extract_mms(response)
 
         artifact_id = None
         if mms_script and db and user_id:
             try:
-                artifact = Artifact(
-                    id=str(uuid.uuid4()),
-                    name=f"mapping_{uuid.uuid4().hex[:8]}.mms",
-                    artifact_type="mapping_doc",
-                    content=mms_script,
-                    format="mms",
-                    user_id=user_id
-                )
-                db.add(artifact)
-                await db.flush()
-                artifact_id = artifact.id
+                async with db.begin_nested():
+                    artifact = Artifact(
+                        id=str(uuid.uuid4()),
+                        name=f"mapping_{uuid.uuid4().hex[:8]}.mms",
+                        artifact_type="mapping_doc",
+                        content=mms_script,
+                        format="mms",
+                        user_id=user_id
+                    )
+                    db.add(artifact)
+                    await db.flush()
+                    artifact_id = artifact.id
             except Exception as e:
                 logger.error(f"Failed to save mapping artifact: {e}")
 

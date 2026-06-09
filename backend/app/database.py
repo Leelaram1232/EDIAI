@@ -26,12 +26,20 @@ class Base(DeclarativeBase):
 
 async def get_db() -> AsyncSession:
     """Dependency that yields a database session."""
+    import logging
+    logger = logging.getLogger("app.database")
     async with async_session_factory() as session:
         try:
             yield session
-            await session.commit()
+            if session.is_active:
+                try:
+                    await session.commit()
+                except Exception as e:
+                    await session.rollback()
+                    logger.error(f"Database commit failed (rolled back): {e}")
         except Exception:
-            await session.rollback()
+            if session.is_active:
+                await session.rollback()
             raise
         finally:
             await session.close()

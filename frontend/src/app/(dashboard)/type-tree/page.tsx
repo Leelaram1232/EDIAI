@@ -269,9 +269,21 @@ ${requirements}
                     </button>
                   ))}
                 </div>
-                {treeResult.artifactId && (
+                {(treeResult.artifactId || (treeResult.mtsScript && treeResult.mtsScript.trim() !== "")) && (
                   <button
-                    onClick={() => downloadFile(treeResult.artifactId!, "type_tree_script.mts")}
+                    onClick={() => {
+                      if (treeResult.artifactId) {
+                        downloadFile(treeResult.artifactId, "type_tree_script.mts");
+                      } else if (treeResult.mtsScript) {
+                        const blob = new Blob([treeResult.mtsScript], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "type_tree_script.mts";
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }
+                    }}
                     className="text-xs font-semibold text-brand-500 border border-brand-500/50 rounded-lg px-2.5 py-1 hover:bg-brand-500/10 transition-colors"
                   >
                     📥 Download .mts
@@ -282,11 +294,16 @@ ${requirements}
               <div className="flex-1 overflow-auto bg-surface-900/5 dark:bg-surface-950/20 rounded-xl p-4 border border-surface-150 dark:border-surface-800">
                 {activeTab === "visual" && (
                   <div className="space-y-2">
-                    {treeResult.jsonSchema ? (
+                    {treeResult.jsonSchema && Object.keys(treeResult.jsonSchema).length > 0 && treeResult.jsonSchema.name ? (
                       <RenderTree node={treeResult.jsonSchema} level={0} />
                     ) : (
-                      <div className="text-xs font-mono whitespace-pre-wrap text-surface-600 dark:text-surface-300">
-                        {treeResult.content}
+                      <div>
+                        <div className="mb-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded text-amber-600 dark:text-amber-400 text-xs">
+                          ⚠️ Visual tree structure could not be parsed. Showing text analysis below:
+                        </div>
+                        <div className="text-xs font-mono whitespace-pre-wrap text-surface-600 dark:text-surface-300">
+                          {treeResult.content}
+                        </div>
                       </div>
                     )}
                   </div>

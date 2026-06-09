@@ -225,9 +225,21 @@ export default function MappingPage() {
                   </button>
                 </div>
                 <div className="flex gap-2">
-                  {mapResult.artifactId && (
+                  {(mapResult.artifactId || (mapResult.mmsScript && mapResult.mmsScript.trim() !== "")) && (
                     <button
-                      onClick={() => downloadFile(mapResult.artifactId!, "mapping_script.mms")}
+                      onClick={() => {
+                        if (mapResult.artifactId) {
+                          downloadFile(mapResult.artifactId, "mapping_script.mms");
+                        } else if (mapResult.mmsScript) {
+                          const blob = new Blob([mapResult.mmsScript], { type: "text/plain" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "mapping_script.mms";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      }}
                       className="text-xs font-semibold text-brand-500 border border-brand-500/50 rounded-lg px-2 py-1 hover:bg-brand-500/10 transition-colors"
                     >
                       📥 Download .mms
